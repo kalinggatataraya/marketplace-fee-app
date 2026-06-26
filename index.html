@@ -166,10 +166,18 @@
           <div class="field"><label>Kategori</label><select id="fKat" onchange="renderHarga()"><option value="">Semua</option></select></div>
           <div class="field"><label>Status</label><select id="fStatus" onchange="renderHarga()"><option value="">Semua</option><option value="need">Perlu update</option><option value="ok">Aman</option></select></div>
           <div class="field"><label>Cari produk</label><input id="fSearch" placeholder="nama / SKU" oninput="renderHarga()"></div>
-          <div class="field"><label>Target margin bersih %</label><input id="fTarget" type="number" step="0.5" style="width:90px" oninput="setTarget(this.value)"></div>
+          <div class="field"><label>Target margin bersih %</label><input id="fTarget" type="number" step="0.5" style="width:90px" oninput="setTarget(this.value)" onchange="saveTargetDefault()"></div>
           <div class="spacer"></div>
           <button class="btn ghost sm" onclick="applyRecommended('selected')">Terapkan harga rekomendasi (tercentang)</button>
           <button class="btn sm" onclick="applyRecommended('all')">Terapkan ke semua yg perlu</button>
+        </div>
+        <div class="toolbar" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px">
+          <div style="font-size:12px;color:var(--mut);align-self:center"><b style="color:var(--txt)">Mode AUTO:</b> listing AUTO harganya otomatis ikut perubahan fee & target margin.</div>
+          <div class="spacer"></div>
+          <div class="field"><label>Set fee % ke listing terfilter</label><input id="bulkFee" type="text" inputmode="decimal" placeholder="mis. 22" style="width:90px"></div>
+          <button class="btn ghost sm" onclick="bulkSetFee()">Terapkan fee</button>
+          <button class="btn ghost sm" onclick="bulkAuto(true)">AUTO: nyalakan (terfilter)</button>
+          <button class="btn ghost sm" onclick="bulkAuto(false)">AUTO: matikan</button>
         </div>
         <div class="tablewrap">
           <table>
@@ -179,7 +187,7 @@
               <th class="num">HPP</th><th class="num">Total Fee %</th><th class="num">Fee Rp</th>
               <th class="num">Harga Jual</th><th class="num">Net Diterima</th>
               <th class="num">Untung Bersih</th><th class="num">Margin</th>
-              <th class="num">Rekomendasi</th><th>Status</th>
+              <th class="num">Rekomendasi</th><th class="num">Auto</th><th>Status</th>
             </tr></thead>
             <tbody id="hargaBody"></tbody>
           </table>
@@ -323,6 +331,8 @@ async function loadAll(){
   ]);
   for(const r of [st,ca,fe,pr,ec]) if(r.error){ alert('Gagal memuat data: '+r.error.message); return; }
   DATA.stores=st.data; DATA.categories=ca.data; DATA.fees=fe.data; DATA.products=pr.data; DATA.econ=ec.data;
+  const sset=await sb.from('mf_settings').select('value').eq('key','default_target_margin').maybeSingle();
+  if(sset.data && sset.data.value!=null){ TARGET=Number(sset.data.value); localStorage.setItem('mf_target',TARGET); const ft=document.getElementById('fTarget'); if(ft) ft.value=TARGET; }
   fillFilters();
   renderAll();
 }
@@ -379,16 +389,19 @@ function renderDashboard(){
 }
 
 let CHECKED=new Set();
-function renderHarga(){
+function getFilteredEcon(){
   const mp=document.getElementById('fMp').value, store=document.getElementById('fStore').value,
-        kat=document.getElementById('fKat').value,
-        stat=document.getElementById('fStatus').value, q=document.getElementById('fSearch').value.toLowerCase();
+        kat=document.getElementById('fKat').value, q=document.getElementById('fSearch').value.toLowerCase();
   let list=DATA.econ.slice();
   if(mp) list=list.filter(e=>String(e.marketplace_id)===mp);
   if(store) list=list.filter(e=>e.store_id===store);
   if(kat) list=list.filter(e=>e.category_id===kat);
   if(q) list=list.filter(e=>(e.product_name||'').toLowerCase().includes(q)||(e.sku||'').toLowerCase().includes(q));
-  list=list.map(e=>({e,c:economics(e),rec:recommendedPrice(e,TARGET)}));
+  return list;
+}
+function renderHarga(){
+  const stat=document.getElementById('fStatus').value;
+  let list=getFilteredEcon().map(e=>({e,c:economics(e),rec:recommendedPrice(e,TARGET)}));
   if(stat==='need') list=list.filter(x=>x.c.margin==null||x.c.margin<TARGET);
   if(stat==='ok')   list=list.filter(x=>x.c.margin!=null&&x.c.margin>=TARGET);
 
@@ -401,16 +414,19 @@ function renderHarga(){
       <td>${esc(e.product_name)}<div class="muted" style="font-size:11px">${esc(e.sku||'')}</div></td>
       <td><span class="badge-mp mp${e.marketplace_id}">${MP[e.marketplace_id]}</span> ${esc(e.store_name)}</td>
       <td class="num">${rp(e.hpp)}</td>
-      <td class="num">${pct(e.total_fee_pct)}</td>
+      <td class="num"><input class="inline-edit" style="width:58px" type="text" inputmode="decimal" value="${e.total_fee_pct}" title="Edit fee % (otomatis re-harga jika AUTO)" onchange="saveFeeOverride('${e.listing_id}',this.value)"></td>
       <td class="num">${c.feeAmt!=null?rp(c.feeAmt):'—'}</td>
-      <td class="num"><span class="muted" style="font-size:11px">Rp</span> <input class="inline-edit" type="text" inputmode="numeric" value="${e.selling_price!=null?fmt(e.selling_price):''}" onfocus="this.value=this.value.replace(/\\D/g,'')" onblur="this.value=this.value?fmt(this.value.replace(/\\D/g,'')):''" onchange="savePrice('${e.listing_id}',this.value)"></td>
+      <td class="num">${e.auto_price
+        ? `<span class="pill blue" title="Otomatis ikut fee">AUTO</span> <span>${e.selling_price!=null?rp(e.selling_price):'—'}</span>`
+        : `<span class="muted" style="font-size:11px">Rp</span> <input class="inline-edit" type="text" inputmode="numeric" value="${e.selling_price!=null?fmt(e.selling_price):''}" onfocus="this.value=this.value.replace(/\\D/g,'')" onblur="this.value=this.value?fmt(this.value.replace(/\\D/g,'')):''" onchange="savePrice('${e.listing_id}',this.value)">`}</td>
       <td class="num">${c.net!=null?rp(c.net):'—'}</td>
       <td class="num" style="color:${c.profit!=null&&c.profit<0?'var(--red)':'inherit'}">${c.profit!=null?rp(c.profit):'—'}</td>
       <td class="num">${mpill}</td>
       <td class="num">${rec?`<span class="muted">${rp(rec)}</span> <button class="btn sm ghost" onclick="savePrice('${e.listing_id}',${rec})">pakai</button>`:'<span class="muted">n/a</span>'}</td>
-      <td>${statPill}</td>
+      <td class="num"><input type="checkbox" ${e.auto_price?'checked':''} title="Harga ikut fee otomatis" onchange="toggleAuto('${e.listing_id}',this.checked)"></td>
+      <td>${e.auto_price?'<span class="pill blue">auto</span>':statPill}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="12" class="empty">Tidak ada listing untuk filter ini.</td></tr>`;
+  }).join('') : `<tr><td colspan="13" class="empty">Tidak ada listing untuk filter ini.</td></tr>`;
 }
 function checkRow(id,on){ on?CHECKED.add(id):CHECKED.delete(id); }
 function toggleAll(on){
@@ -444,6 +460,48 @@ async function applyRecommended(scope){
   CHECKED.clear();
   renderHarga(); renderDashboard();
   alert(targets.length+' harga diperbarui.');
+}
+
+/* ---- Mode AUTO: harga otomatis ikut perubahan fee ---- */
+async function repriceAndReload(){ await sb.rpc('mf_reprice_auto'); await loadAll(); }
+async function saveFeeOverride(listingId, val){
+  const v=String(val).replace(',','.').replace(/[^\d.]/g,'');
+  const pct=v===''?null:Number(v);
+  const {error}=await sb.from('mf_listings').update({fee_pct_override:pct}).eq('id',listingId);
+  if(error){alert('Gagal simpan fee: '+error.message);return;}
+  await repriceAndReload();
+}
+async function toggleAuto(listingId, on){
+  const {error}=await sb.from('mf_listings').update({auto_price:on}).eq('id',listingId);
+  if(error){alert(error.message);return;}
+  await repriceAndReload();
+}
+async function bulkSetFee(){
+  const raw=document.getElementById('bulkFee').value.replace(',','.').replace(/[^\d.]/g,'');
+  if(raw===''){alert('Isi nilai fee % dulu.');return;}
+  const pct=Number(raw);
+  const ids=getFilteredEcon().map(e=>e.listing_id);
+  if(!ids.length){alert('Tidak ada listing pada filter saat ini.');return;}
+  if(!confirm(`Set fee menjadi ${pct}% untuk ${ids.length} listing terfilter?\nListing ber-mode AUTO akan otomatis dihitung ulang harganya.`))return;
+  const {error}=await sb.from('mf_listings').update({fee_pct_override:pct}).in('id',ids);
+  if(error){alert(error.message);return;}
+  await repriceAndReload();
+  document.getElementById('bulkFee').value='';
+  alert('Fee diperbarui untuk '+ids.length+' listing.');
+}
+async function bulkAuto(on){
+  const ids=getFilteredEcon().map(e=>e.listing_id);
+  if(!ids.length){alert('Tidak ada listing pada filter saat ini.');return;}
+  if(!confirm(`${on?'Nyalakan':'Matikan'} mode AUTO untuk ${ids.length} listing terfilter?`))return;
+  const {error}=await sb.from('mf_listings').update({auto_price:on}).in('id',ids);
+  if(error){alert(error.message);return;}
+  await repriceAndReload();
+  alert('Mode AUTO '+(on?'aktif':'mati')+' untuk '+ids.length+' listing.');
+}
+async function saveTargetDefault(){
+  const {error}=await sb.from('mf_settings').upsert({key:'default_target_margin',value:TARGET});
+  if(error){alert(error.message);return;}
+  await repriceAndReload();
 }
 
 function renderProduk(){
