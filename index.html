@@ -550,11 +550,25 @@ function openImport(){
   IMPORT_ROWS=[];
   modal.innerHTML=`<h3>Impor Produk dari Excel / CSV</h3>
     <p class="sub">Kolom dikenali otomatis dari baris header (tidak peka huruf besar/kecil): <b>Nama</b> (wajib), <b>HPP</b>/Modal, <b>Markup</b> (%), <b>Kategori</b>/Brand, <b>SKU</b>/Kode. Markup boleh 6, 6%, atau 0,06.</p>
+    <div style="margin-bottom:12px"><button class="btn ghost sm" onclick="downloadTemplate()">&darr; Unduh template Excel</button> <span class="muted" style="font-size:12px">isi sesuai contoh, lalu unggah di bawah.</span></div>
     <div class="field full"><label>File .xlsx / .xls / .csv</label><input id="impFile" type="file" accept=".xlsx,.xls,.csv" onchange="previewImport(event)"></div>
     <div class="field full" style="margin-top:10px"><label style="cursor:pointer"><input type="checkbox" id="impListing" checked> Langsung pasang ke semua toko (buat listing draft)</label></div>
     <div id="impPreview" class="sub" style="margin-top:12px;min-height:20px"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Batal</button><button class="btn" id="impBtn" onclick="runImport()" disabled>Impor</button></div>`;
   overlay.classList.add('show');
+}
+function downloadTemplate(){
+  const data=[
+    ['Nama Produk','HPP','Markup %','Kategori','SKU'],
+    ['Ansell Touch N Tuff 92-600 (Nitrile), Size S, M, L, XL',190929,12,'ANSELL','1 box (100 pcs)'],
+    ['Livi Eco Multipurpose 60 packs x 150 s/2 ply',142474,6,'LIVI','1011402100030'],
+    ['Wax Strip',88888,6,'SC Johnson','FLOOR STRIPPER']
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:55},{wch:14},{wch:10},{wch:16},{wch:22}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Produk');
+  XLSX.writeFile(wb,'Template Impor Produk MarketFee.xlsx');
 }
 function previewImport(e){
   const file=e.target.files[0]; if(!file) return;
