@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MarketFee — Sistem Harga & Fee Marketplace</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#0f1729; --panel:#161f33; --panel2:#1d2941; --line:#283450;
@@ -17,8 +18,6 @@
   button{font-family:inherit;cursor:pointer}
   input,select{font-family:inherit;font-size:14px}
   a{color:var(--brand)}
-
-  /* ---------- Layout ---------- */
   #app{display:none}
   header{display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
   .logo{font-weight:800;font-size:18px;letter-spacing:.3px}
@@ -32,8 +31,6 @@
   main{padding:20px;max-width:1280px;margin:0 auto}
   .view{display:none}
   .view.active{display:block}
-
-  /* ---------- Components ---------- */
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:18px}
   h2{margin:0 0 4px;font-size:20px}
   .sub{color:var(--mut);margin:0 0 16px;font-size:13px}
@@ -49,7 +46,6 @@
   .btn.sm{padding:6px 10px;font-size:12px;font-weight:600}
   .btn.danger{background:transparent;color:var(--red);border:1px solid var(--line)}
   .btn.danger:hover{background:rgba(239,68,68,.12)}
-  .btn.ok{background:var(--green)}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
   th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
@@ -65,16 +61,14 @@
   .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
   .kpi .v{font-size:26px;font-weight:800;margin-top:4px}
   .kpi .l{color:var(--mut);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
-  .inline-edit{width:110px;text-align:right}
+  .inline-edit{width:96px;text-align:right}
   .muted{color:var(--mut)}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
   .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius)}
   .badge-mp{font-size:11px;padding:2px 8px;border-radius:6px;font-weight:700}
-  .mp1{background:rgba(34,197,94,.15);color:#4ade80}   /* Tokopedia */
-  .mp2{background:rgba(245,90,30,.18);color:#fb923c}    /* Shopee */
+  .mp1{background:rgba(34,197,94,.15);color:#4ade80}
+  .mp2{background:rgba(245,90,30,.18);color:#fb923c}
   .empty{text-align:center;color:var(--mut);padding:36px}
-
-  /* ---------- Modal ---------- */
   .overlay{position:fixed;inset:0;background:rgba(5,9,18,.7);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
   .overlay.show{display:flex}
   .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;width:480px;max-width:100%;max-height:90vh;overflow:auto}
@@ -82,8 +76,6 @@
   .modal .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .modal .full{grid-column:1/-1}
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
-
-  /* ---------- Login / Setup ---------- */
   #gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
   .gatebox{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:30px;width:420px;max-width:100%}
   .gatebox h1{margin:0 0 4px;font-size:24px}
@@ -102,28 +94,22 @@
 </head>
 <body>
 
-<!-- ============ GATE: SETUP + LOGIN ============ -->
 <div id="gate">
   <div class="gatebox">
     <h1>Market<span style="color:var(--brand)">Fee</span></h1>
     <p class="sub">Sistem input & harga marketplace — Tokopedia & Shopee</p>
-
     <div id="setupBox">
       <div class="tabsmini">
         <button id="tabLogin" class="active" onclick="showGate('login')">Masuk</button>
         <button id="tabConfig" onclick="showGate('config')">Koneksi</button>
       </div>
-
-      <!-- LOGIN -->
       <div id="paneLogin">
         <div class="field"><label>Email staff</label><input id="email" type="email" placeholder="staff@toko.com"></div>
-        <div class="field"><label>Password</label><input id="password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <div class="field"><label>Password</label><input id="password" type="password" placeholder="........" onkeydown="if(event.key==='Enter')doLogin()"></div>
         <div class="err" id="loginErr"></div>
         <button class="btn" style="width:100%;margin-top:14px" onclick="doLogin()">Masuk</button>
         <p class="hint">Akun staff dibuat di Supabase &gt; Authentication &gt; Users. Belum mengisi koneksi? Klik tab <b>Koneksi</b> dulu.</p>
       </div>
-
-      <!-- CONFIG -->
       <div id="paneConfig" style="display:none">
         <div class="field"><label>Supabase URL</label><input id="cfgUrl" placeholder="https://xxxx.supabase.co"></div>
         <div class="field"><label>Supabase anon key</label><input id="cfgKey" placeholder="eyJhbGci..."></div>
@@ -135,7 +121,6 @@
   </div>
 </div>
 
-<!-- ============ APP ============ -->
 <div id="app">
   <header>
     <div class="logo">Market<span>Fee</span></div>
@@ -154,7 +139,6 @@
   </header>
 
   <main>
-    <!-- ===== DASHBOARD ===== -->
     <section class="view active" id="v-dashboard">
       <h2>Dashboard</h2>
       <p class="sub">Ringkasan kondisi harga & margin di semua toko.</p>
@@ -162,7 +146,7 @@
       <div class="card">
         <div class="row" style="justify-content:space-between">
           <div><b>Listing yang perlu update harga</b><div class="sub" style="margin:2px 0 0">Margin bersih di bawah target (<span id="targetEcho"></span>) setelah fee saat ini.</div></div>
-          <button class="btn sm" onclick="nav('harga')">Buka Harga &amp; Fee →</button>
+          <button class="btn sm" onclick="nav('harga')">Buka Harga &amp; Fee &rarr;</button>
         </div>
         <div class="tablewrap" style="margin-top:12px">
           <table><thead><tr>
@@ -172,7 +156,6 @@
       </div>
     </section>
 
-    <!-- ===== HARGA & FEE ===== -->
     <section class="view" id="v-harga">
       <h2>Harga &amp; Fee</h2>
       <p class="sub">Inti sistem: lihat dampak fee ke margin, dan update harga massal saat fee berubah.</p>
@@ -180,6 +163,7 @@
         <div class="toolbar">
           <div class="field"><label>Marketplace</label><select id="fMp" onchange="renderHarga()"><option value="">Semua</option><option value="1">Tokopedia</option><option value="2">Shopee</option></select></div>
           <div class="field"><label>Toko</label><select id="fStore" onchange="renderHarga()"><option value="">Semua</option></select></div>
+          <div class="field"><label>Kategori</label><select id="fKat" onchange="renderHarga()"><option value="">Semua</option></select></div>
           <div class="field"><label>Status</label><select id="fStatus" onchange="renderHarga()"><option value="">Semua</option><option value="need">Perlu update</option><option value="ok">Aman</option></select></div>
           <div class="field"><label>Cari produk</label><input id="fSearch" placeholder="nama / SKU" oninput="renderHarga()"></div>
           <div class="field"><label>Target margin bersih %</label><input id="fTarget" type="number" step="0.5" style="width:90px" oninput="setTarget(this.value)"></div>
@@ -203,7 +187,6 @@
       </div>
     </section>
 
-    <!-- ===== PRODUK ===== -->
     <section class="view" id="v-produk">
       <h2>Produk</h2>
       <p class="sub">Daftar produk (HPP + markup). Satu produk bisa dipasang ke banyak toko.</p>
@@ -211,6 +194,7 @@
         <div class="toolbar">
           <div class="field"><label>Cari</label><input id="pSearch" placeholder="nama / SKU" oninput="renderProduk()"></div>
           <div class="spacer"></div>
+          <button class="btn ghost" onclick="openImport()">&uarr; Impor Excel</button>
           <button class="btn" onclick="openProduct()">+ Produk baru</button>
         </div>
         <div class="tablewrap">
@@ -222,10 +206,9 @@
       </div>
     </section>
 
-    <!-- ===== TOKO ===== -->
     <section class="view" id="v-toko">
       <h2>Toko</h2>
-      <p class="sub">Tiap toko punya fee admin sendiri. Ubah di sini → margin semua listing toko itu otomatis dihitung ulang.</p>
+      <p class="sub">Tiap toko punya fee admin sendiri. Ubah di sini &rarr; margin semua listing toko itu otomatis dihitung ulang.</p>
       <div class="card">
         <div class="toolbar"><div class="spacer"></div><button class="btn" onclick="openStore()">+ Toko baru</button></div>
         <div class="tablewrap"><table><thead><tr>
@@ -234,7 +217,6 @@
       </div>
     </section>
 
-    <!-- ===== KATEGORI ===== -->
     <section class="view" id="v-kategori">
       <h2>Kategori</h2>
       <p class="sub">Fee admin per kategori produk (bisa beda per marketplace).</p>
@@ -246,10 +228,9 @@
       </div>
     </section>
 
-    <!-- ===== BIAYA TAMBAHAN ===== -->
     <section class="view" id="v-biaya">
       <h2>Biaya Tambahan</h2>
-      <p class="sub">Gratis ongkir, biaya layanan, cashback, dll. Matikan saat program berakhir — margin langsung ikut berubah.</p>
+      <p class="sub">Gratis ongkir, biaya layanan, cashback, dll. Matikan saat program berakhir &mdash; margin langsung ikut berubah.</p>
       <div class="card">
         <div class="toolbar"><div class="spacer"></div><button class="btn" onclick="openFee()">+ Biaya baru</button></div>
         <div class="tablewrap"><table><thead><tr>
@@ -258,19 +239,18 @@
       </div>
     </section>
 
-    <!-- ===== KALKULATOR ===== -->
     <section class="view" id="v-kalkulator">
       <h2>Kalkulator Cepat</h2>
       <p class="sub">Simulasi harga & margin sebelum input. Tidak menyimpan data.</p>
       <div class="card" style="max-width:640px">
-        <div class="grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="field"><label>HPP (Rp)</label><input id="kHpp" type="number" value="50000" oninput="calc()"></div>
           <div class="field"><label>Markup %</label><input id="kMarkup" type="number" value="40" oninput="calc()"></div>
           <div class="field"><label>Fee admin toko %</label><input id="kAdmin" type="number" value="4.5" oninput="calc()"></div>
           <div class="field"><label>Fee kategori %</label><input id="kCat" type="number" value="2" oninput="calc()"></div>
           <div class="field"><label>Biaya tambahan %</label><input id="kAdd" type="number" value="5" oninput="calc()"></div>
           <div class="field"><label>Biaya tambahan Rp</label><input id="kAddFlat" type="number" value="0" oninput="calc()"></div>
-          <div class="field full" style="grid-column:1/-1"><label>Target margin bersih % (untuk harga rekomendasi)</label><input id="kTarget" type="number" value="15" oninput="calc()"></div>
+          <div class="field" style="grid-column:1/-1"><label>Target margin bersih % (untuk harga rekomendasi)</label><input id="kTarget" type="number" value="15" oninput="calc()"></div>
         </div>
         <div class="calc-out" id="calcOut"></div>
       </div>
@@ -278,13 +258,9 @@
   </main>
 </div>
 
-<!-- ============ MODAL ============ -->
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 
 <script>
-/* =====================================================================
-   STATE & SUPABASE
-===================================================================== */
 let sb = null;
 let DATA = { stores:[], categories:[], fees:[], products:[], econ:[] };
 let TARGET = parseFloat(localStorage.getItem('mf_target') || '15');
@@ -294,7 +270,6 @@ const pct = n => (n==null||isNaN(n)) ? '—' : (Math.round(n*100)/100) + '%';
 const MP  = {1:'Tokopedia',2:'Shopee'};
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-/* ---- gate / config ---- */
 function showGate(which){
   document.getElementById('paneLogin').style.display  = which==='login'?'block':'none';
   document.getElementById('paneConfig').style.display = which==='config'?'block':'none';
@@ -319,7 +294,6 @@ function initClient(){
   return true;
 }
 
-/* ---- auth ---- */
 async function doLogin(){
   if(!sb){ if(!initClient()){ document.getElementById('loginErr').textContent='Isi Koneksi Supabase dulu.'; showGate('config'); return; } }
   const email=document.getElementById('email').value.trim();
@@ -339,9 +313,6 @@ async function enterApp(){
   await loadAll();
 }
 
-/* =====================================================================
-   DATA LOADING
-===================================================================== */
 async function loadAll(){
   const [st,ca,fe,pr,ec] = await Promise.all([
     sb.from('mf_stores').select('*').order('marketplace_id').order('name'),
@@ -350,19 +321,16 @@ async function loadAll(){
     sb.from('mf_products').select('*, mf_categories(name)').order('name'),
     sb.from('mf_v_listing_economics').select('*')
   ]);
-  for(const r of [st,ca,fe,pr,ec]) if(r.error){ alert('Gagal memuat data: '+r.error.message+'\n\nSudah jalankan schema.sql?'); return; }
+  for(const r of [st,ca,fe,pr,ec]) if(r.error){ alert('Gagal memuat data: '+r.error.message); return; }
   DATA.stores=st.data; DATA.categories=ca.data; DATA.fees=fe.data; DATA.products=pr.data; DATA.econ=ec.data;
-  fillStoreFilter();
+  fillFilters();
   renderAll();
 }
-function fillStoreFilter(){
-  const sel=document.getElementById('fStore');
-  sel.innerHTML='<option value="">Semua</option>'+DATA.stores.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+function fillFilters(){
+  document.getElementById('fStore').innerHTML='<option value="">Semua</option>'+DATA.stores.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  document.getElementById('fKat').innerHTML='<option value="">Semua</option>'+DATA.categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
 }
 
-/* =====================================================================
-   ECONOMICS — perhitungan inti
-===================================================================== */
 function economics(e, sellingOverride){
   const price = sellingOverride!=null ? sellingOverride : e.selling_price;
   const tpct  = Number(e.total_fee_pct)||0;
@@ -375,28 +343,24 @@ function economics(e, sellingOverride){
   const margin = price>0 ? profit/price*100 : null;
   return {price, tpct, flat, hpp, feeAmt, net, profit, margin};
 }
-// Harga agar margin bersih = target (markup-from-HPP sebagai dasar, ini penyesuaian terhadap fee)
 function recommendedPrice(e, target){
   const tpct=(Number(e.total_fee_pct)||0)/100;
   const flat=Number(e.add_fee_flat)||0;
   const hpp =Number(e.hpp)||0;
   const m   =target/100;
   const denom = 1 - tpct - m;
-  if(denom<=0) return null;               // target tak mungkin tercapai dgn fee ini
+  if(denom<=0) return null;
   const price=(hpp+flat)/denom;
-  return Math.ceil(price/100)*100;        // bulatkan ke atas kelipatan 100
+  return Math.ceil(price/100)*100;
 }
 
-/* =====================================================================
-   RENDER
-===================================================================== */
 function renderAll(){ renderDashboard(); renderHarga(); renderProduk(); renderToko(); renderKategori(); renderBiaya(); calc(); }
 
 function renderDashboard(){
   const ec=DATA.econ;
   const listed=ec.filter(e=>e.selling_price!=null);
-  let need=0,totProfit=0,marginSum=0,marginN=0;
-  listed.forEach(e=>{const c=economics(e); if(c.profit!=null){totProfit+=c.profit;} if(c.margin!=null){marginSum+=c.margin;marginN++; if(c.margin<TARGET)need++;}});
+  let need=0,marginSum=0,marginN=0;
+  listed.forEach(e=>{const c=economics(e); if(c.margin!=null){marginSum+=c.margin;marginN++; if(c.margin<TARGET)need++;}});
   const kpis=[
     ['Produk',DATA.products.length],
     ['Toko aktif',DATA.stores.filter(s=>s.active).length],
@@ -406,22 +370,23 @@ function renderDashboard(){
   ];
   document.getElementById('kpis').innerHTML=kpis.map(k=>`<div class="kpi"><div class="l">${k[0]}</div><div class="v" ${k[2]==='red'?'style="color:var(--red)"':k[2]==='green'?'style="color:var(--green)"':''}>${typeof k[1]==='number'?fmt(k[1]):k[1]}</div></div>`).join('');
   document.getElementById('targetEcho').textContent=TARGET+'%';
-
   const rows=listed.map(e=>({e,c:economics(e)})).filter(x=>x.c.margin!=null&&x.c.margin<TARGET).sort((a,b)=>a.c.margin-b.c.margin).slice(0,15);
   document.getElementById('dashNeed').innerHTML = rows.length? rows.map(({e,c})=>`
     <tr><td>${esc(e.product_name)}</td><td><span class="badge-mp mp${e.marketplace_id}">${MP[e.marketplace_id]}</span> ${esc(e.store_name)}</td>
     <td class="num">${rp(e.selling_price)}</td><td class="num">${pct(e.total_fee_pct)}</td>
     <td class="num"><span class="pill red">${pct(c.margin)}</span></td></tr>`).join('')
-    : `<tr><td colspan="5" class="empty">Semua margin di atas target 🎉</td></tr>`;
+    : `<tr><td colspan="5" class="empty">Semua margin di atas target.</td></tr>`;
 }
 
 let CHECKED=new Set();
 function renderHarga(){
   const mp=document.getElementById('fMp').value, store=document.getElementById('fStore').value,
+        kat=document.getElementById('fKat').value,
         stat=document.getElementById('fStatus').value, q=document.getElementById('fSearch').value.toLowerCase();
   let list=DATA.econ.slice();
   if(mp) list=list.filter(e=>String(e.marketplace_id)===mp);
   if(store) list=list.filter(e=>e.store_id===store);
+  if(kat) list=list.filter(e=>e.category_id===kat);
   if(q) list=list.filter(e=>(e.product_name||'').toLowerCase().includes(q)||(e.sku||'').toLowerCase().includes(q));
   list=list.map(e=>({e,c:economics(e),rec:recommendedPrice(e,TARGET)}));
   if(stat==='need') list=list.filter(x=>x.c.margin==null||x.c.margin<TARGET);
@@ -438,14 +403,14 @@ function renderHarga(){
       <td class="num">${rp(e.hpp)}</td>
       <td class="num">${pct(e.total_fee_pct)}</td>
       <td class="num">${c.feeAmt!=null?rp(c.feeAmt):'—'}</td>
-      <td class="num"><input class="inline-edit" type="number" value="${e.selling_price??''}" onchange="savePrice('${e.listing_id}',this.value)"></td>
+      <td class="num"><span class="muted" style="font-size:11px">Rp</span> <input class="inline-edit" type="text" inputmode="numeric" value="${e.selling_price!=null?fmt(e.selling_price):''}" onfocus="this.value=this.value.replace(/\\D/g,'')" onblur="this.value=this.value?fmt(this.value.replace(/\\D/g,'')):''" onchange="savePrice('${e.listing_id}',this.value)"></td>
       <td class="num">${c.net!=null?rp(c.net):'—'}</td>
       <td class="num" style="color:${c.profit!=null&&c.profit<0?'var(--red)':'inherit'}">${c.profit!=null?rp(c.profit):'—'}</td>
       <td class="num">${mpill}</td>
       <td class="num">${rec?`<span class="muted">${rp(rec)}</span> <button class="btn sm ghost" onclick="savePrice('${e.listing_id}',${rec})">pakai</button>`:'<span class="muted">n/a</span>'}</td>
       <td>${statPill}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="12" class="empty">Belum ada listing. Buka <b>Produk</b> → pasang ke toko.</td></tr>`;
+  }).join('') : `<tr><td colspan="12" class="empty">Tidak ada listing untuk filter ini.</td></tr>`;
 }
 function checkRow(id,on){ on?CHECKED.add(id):CHECKED.delete(id); }
 function toggleAll(on){
@@ -456,7 +421,8 @@ function toggleAll(on){
 function setTarget(v){ TARGET=parseFloat(v)||0; localStorage.setItem('mf_target',TARGET); renderHarga(); renderDashboard(); }
 
 async function savePrice(listingId, val){
-  const price = val===''?null:Number(val);
+  const digits = String(val).replace(/[^\d]/g,'');
+  const price = digits===''?null:Number(digits);
   const econ = DATA.econ.find(e=>e.listing_id===listingId);
   const c = price!=null?economics(econ,price):{margin:null};
   const status = price==null?'draft':(c.margin!=null&&c.margin<TARGET?'need_update':'listed');
@@ -524,9 +490,6 @@ function renderBiaya(){
     : `<tr><td colspan="6" class="empty">Belum ada biaya tambahan.</td></tr>`;
 }
 
-/* =====================================================================
-   KALKULATOR
-===================================================================== */
 function calc(){
   const g=id=>parseFloat(document.getElementById(id).value)||0;
   const hpp=g('kHpp'),mk=g('kMarkup'),tpct=g('kAdmin')+g('kCat')+g('kAdd'),flat=g('kAddFlat'),tgt=g('kTarget');
@@ -543,20 +506,15 @@ function calc(){
     <div><div class="l">Harga utk margin ${pct(tgt)}</div><div class="v">${rec?rp(rec):'tak tercapai'}${rec?` <span class="muted" style="font-size:12px">untung ${rp(recProfit)}</span>`:''}</div></div>`;
 }
 
-/* =====================================================================
-   MODAL CRUD
-===================================================================== */
 const overlay=document.getElementById('overlay'), modal=document.getElementById('modal');
 function closeModal(){overlay.classList.remove('show');modal.innerHTML='';}
 overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});
-
 function mpOptions(sel,allowNull,nullLabel){
   let o = allowNull?`<option value="">${nullLabel||'Umum'}</option>`:'';
   o+=`<option value="1" ${sel==1?'selected':''}>Tokopedia</option><option value="2" ${sel==2?'selected':''}>Shopee</option>`;
   return o;
 }
 
-/* ---- Produk ---- */
 function openProduct(id){
   const p = id?DATA.products.find(x=>x.id===id):{};
   const catOpts='<option value="">— tanpa kategori —</option>'+DATA.categories.map(c=>`<option value="${c.id}" ${p.category_id===c.id?'selected':''}>${esc(c.name)} (${c.marketplace_id?MP[c.marketplace_id]:'Umum'} ${c.category_fee_pct}%)</option>`).join('');
@@ -582,12 +540,93 @@ async function saveProduct(id){
 }
 async function delProduct(id){ if(!confirm('Hapus produk ini beserta listingnya?'))return; const {error}=await sb.from('mf_products').delete().eq('id',id); if(error){alert(error.message);return;} await loadAll(); }
 
-/* ---- Listing (pasang produk ke toko) ---- */
+/* ---- Impor produk massal dari Excel / CSV ---- */
+let IMPORT_ROWS=[];
+function pickCol(headers, names){
+  for(const n of names){ const i=headers.findIndex(h=>String(h).toLowerCase().replace(/\s+/g,'').includes(n)); if(i>=0) return i; }
+  return -1;
+}
+function openImport(){
+  IMPORT_ROWS=[];
+  modal.innerHTML=`<h3>Impor Produk dari Excel / CSV</h3>
+    <p class="sub">Kolom dikenali otomatis dari baris header (tidak peka huruf besar/kecil): <b>Nama</b> (wajib), <b>HPP</b>/Modal, <b>Markup</b> (%), <b>Kategori</b>/Brand, <b>SKU</b>/Kode. Markup boleh 6, 6%, atau 0,06.</p>
+    <div class="field full"><label>File .xlsx / .xls / .csv</label><input id="impFile" type="file" accept=".xlsx,.xls,.csv" onchange="previewImport(event)"></div>
+    <div class="field full" style="margin-top:10px"><label style="cursor:pointer"><input type="checkbox" id="impListing" checked> Langsung pasang ke semua toko (buat listing draft)</label></div>
+    <div id="impPreview" class="sub" style="margin-top:12px;min-height:20px"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Batal</button><button class="btn" id="impBtn" onclick="runImport()" disabled>Impor</button></div>`;
+  overlay.classList.add('show');
+}
+function previewImport(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let hi=rows.findIndex(r=>r.some(c=>String(c).toLowerCase().includes('nama')||String(c).toLowerCase().includes('name')));
+      if(hi<0) hi=0;
+      const headers=rows[hi];
+      const ci={
+        name: pickCol(headers,['namaproduk','nama','name','produk']),
+        hpp:  pickCol(headers,['hppinclppn','modalinclppn','hpp','modal']),
+        markup:pickCol(headers,['markup']),
+        cat:  pickCol(headers,['kategori','brand','merek']),
+        sku:  pickCol(headers,['sku','kode','packing'])
+      };
+      IMPORT_ROWS=[];
+      for(let i=hi+1;i<rows.length;i++){
+        const r=rows[i]; const name=ci.name>=0?String(r[ci.name]).trim():'';
+        if(!name) continue;
+        let mk = ci.markup>=0 ? parseFloat(String(r[ci.markup]).replace(',','.').replace(/[^\d.]/g,''))||0 : 0;
+        if(mk>0 && mk<1) mk=mk*100;
+        IMPORT_ROWS.push({
+          name,
+          hpp: ci.hpp>=0 ? Number(String(r[ci.hpp]).replace(/[^\d]/g,''))||0 : 0,
+          markup: mk,
+          cat: ci.cat>=0 ? String(r[ci.cat]).trim() : '',
+          sku: ci.sku>=0 ? String(r[ci.sku]).trim() : ''
+        });
+      }
+      const pv=document.getElementById('impPreview');
+      if(IMPORT_ROWS.length){
+        const s=IMPORT_ROWS[0];
+        pv.innerHTML=`Terbaca <b>${IMPORT_ROWS.length}</b> produk. Contoh: <b>${esc(s.name)}</b> — HPP ${rp(s.hpp)}, markup ${s.markup}%${s.cat?', kategori '+esc(s.cat):''}.`;
+        document.getElementById('impBtn').disabled=false;
+      }else{
+        pv.innerHTML='Tidak ada baris terbaca. Pastikan ada kolom <b>Nama</b>.';
+        document.getElementById('impBtn').disabled=true;
+      }
+    }catch(err){ document.getElementById('impPreview').innerHTML='Gagal membaca file: '+err.message; }
+  };
+  reader.readAsArrayBuffer(file);
+}
+async function runImport(){
+  if(!IMPORT_ROWS.length) return;
+  const withListing=document.getElementById('impListing').checked;
+  const btn=document.getElementById('impBtn'); btn.disabled=true; btn.textContent='Mengimpor...';
+  const catMap={}; DATA.categories.forEach(c=>catMap[c.name.toLowerCase()]=c.id);
+  const newCats=[...new Set(IMPORT_ROWS.map(r=>r.cat).filter(c=>c && !catMap[c.toLowerCase()]))];
+  for(const cn of newCats){
+    const {data,error}=await sb.from('mf_categories').insert({name:cn,category_fee_pct:0}).select().single();
+    if(!error && data) catMap[cn.toLowerCase()]=data.id;
+  }
+  const payload=IMPORT_ROWS.map(r=>({sku:r.sku||null,name:r.name,hpp:r.hpp,markup_pct:r.markup,category_id:r.cat?catMap[r.cat.toLowerCase()]||null:null}));
+  const {data:ins,error}=await sb.from('mf_products').insert(payload).select('id,name');
+  if(error){ alert('Gagal impor: '+error.message); btn.disabled=false; btn.textContent='Impor'; return; }
+  if(withListing && ins && ins.length){
+    const rows=[]; ins.forEach(p=>DATA.stores.forEach(s=>rows.push({product_id:p.id,store_id:s.id,status:'draft'})));
+    if(rows.length){ const {error:le}=await sb.from('mf_listings').insert(rows); if(le) alert('Produk masuk, sebagian listing gagal: '+le.message); }
+  }
+  closeModal(); await loadAll();
+  alert((ins?ins.length:0)+' produk berhasil diimpor.');
+}
+
 function openListings(productId){
   const p=DATA.products.find(x=>x.id===productId);
   const existing={}; DATA.econ.filter(e=>e.product_id===productId).forEach(e=>existing[e.store_id]=e);
   modal.innerHTML=`<h3>Pasang "${esc(p.name)}" ke Toko</h3>
-    <p class="sub">Centang toko tempat produk dijual. Harga bisa diatur di tab Harga &amp; Fee.</p>
+    <p class="sub">Centang toko tempat produk dijual. Harga diatur di tab Harga &amp; Fee.</p>
     <div style="max-height:340px;overflow:auto">
     ${DATA.stores.map(s=>{
       const e=existing[s.id]; const rec=e?recommendedPrice(e,TARGET):null;
@@ -611,7 +650,6 @@ async function saveListings(productId){
   closeModal(); await loadAll();
 }
 
-/* ---- Toko ---- */
 function openStore(id){
   const s=id?DATA.stores.find(x=>x.id===id):{};
   modal.innerHTML=`<h3>${id?'Edit':'Tambah'} Toko</h3>
@@ -633,7 +671,6 @@ async function saveStore(id){
   if(res.error){alert(res.error.message);return;} closeModal(); await loadAll();
 }
 
-/* ---- Kategori ---- */
 function openCategory(id){
   const c=id?DATA.categories.find(x=>x.id===id):{};
   modal.innerHTML=`<h3>${id?'Edit':'Tambah'} Kategori</h3>
@@ -654,7 +691,6 @@ async function saveCategory(id){
   if(res.error){alert(res.error.message);return;} closeModal(); await loadAll();
 }
 
-/* ---- Biaya tambahan ---- */
 function openFee(id){
   const f=id?DATA.fees.find(x=>x.id===id):{};
   modal.innerHTML=`<h3>${id?'Edit':'Tambah'} Biaya Tambahan</h3>
@@ -679,9 +715,6 @@ async function toggleFee(id,on){ const {error}=await sb.from('mf_additional_fees
 
 async function delRow(table,id){ if(!confirm('Hapus data ini?'))return; const {error}=await sb.from(table).delete().eq('id',id); if(error){alert(error.message);return;} await loadAll(); }
 
-/* =====================================================================
-   NAV & BOOT
-===================================================================== */
 function nav(view){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
